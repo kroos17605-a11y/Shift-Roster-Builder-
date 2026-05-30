@@ -1,6 +1,8 @@
 # Shift Roster Builder
 
-A web application for managers to create and manage weekly staff schedules for small teams. Built as a take-home coding challenge.
+A web application for managers to create and manage weekly staff schedules for small teams.
+
+Built for the internship coding challenge — **Option A: Shift Roster Builder**.
 
 ## Quick Start
 
@@ -9,83 +11,161 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173 in your browser. Click **"Load Sample Data"** to see the app populated with demo employees and shifts (including intentional conflicts).
+Open http://localhost:5173. The app loads with demo data on first launch.
 
-## Design Decisions
+---
 
-### Data Model
+## Core Requirements
 
-Two core entities with a 1:N relationship:
+### 1. Add, edit, and remove employees (each has a name and one or more roles)
 
-- **Employee** — `id`, `name`, `roles[]`. Roles are free-form strings (e.g. "Cashier", "Cook") displayed as colored badges.
-- **Shift** — `id`, `employeeId`, `day` (enum), `startTime`, `endTime`. Time stored as `HH:MM` strings since all data lives in-memory with no timezone concerns.
+Roles are comma-separated free-text input (e.g. `Supervisor, Cashier`). Employees appear as cards in the left sidebar with role badges.
 
-The model is intentionally flat. No teams, departments, or shift templates — the assignment brief describes a "small team" scenario, and adding hierarchy before it's needed would violate YAGNI.
+![Employee management](screenshots/04-add-employee.png)
 
-### Why Context + useReducer Instead of Redux or Zustand
+**Design**: Each employee is a `{ id, name, roles: string[] }` object. Role matching for shift swaps uses exact set comparison (sorted array equality). The sidebar always displays an empty state guiding the user to add their first employee.
 
-The state shape is shallow (employees + shifts + week date), there are exactly 7 actions, and only a handful of components consume the state. Context + useReducer is zero-dependency, TypeScript-native, and sufficient for this scale. If the app grew to need middleware or devtools, migrating to Zustand would be trivial since the reducer pattern maps directly.
+### 2. Assign an employee to a specific day and time slot
 
-### Why CSS Grid (Not a Calendar Library)
+Click any cell in the weekly grid (or the "+" icon on hover) to open the shift assignment form. Select employee, day, start/end time.
 
-The requirement explicitly bans scheduling libraries. A custom CSS Grid with 8 columns (1 for employee names, 7 for days) gives full control over cell rendering. Libraries like React Big Calendar or FullCalendar are optimized for date-range views and would fight the "employees-as-rows" layout that a roster demands.
+![Assign shift](screenshots/01-main-roster.png)
 
-### Conflict Detection as Pure Functions
+**Design**: Shifts store a concrete calendar date (`YYYY-MM-DD`) computed from `weekStartDate + day offset`, enabling week-independent filtering. Time is stored as `HH:MM` strings — no timezone concerns since data lives in-memory.
 
-Conflicts are derived state, not stored state. `detectAllConflicts(shifts)` is a synchronous pure function returning `Conflict[]`. Components call it on every render — for a small team (<50 employees), the O(n^2) pairwise comparison is imperceptible.
+### 3. Display all assignments in a weekly grid (days as columns, employees as rows)
 
-Two conflict types implemented:
+An 8-column CSS Grid: fixed employee name column + 7 equal day columns. The grid renders shift badges showing time ranges. Empty cells show a hover-activated "+" button.
 
-1. **Time overlap** — same employee, same day, two shifts where `a.start < b.end && b.start < a.end`. Handles partial overlap, complete containment, and back-to-back (boundary-touching is NOT a conflict).
-2. **Consecutive days > 5** — sliding window over Monday→Sunday order. If an employee works 6 or 7 consecutive days, all shifts in that streak are flagged.
+![Weekly grid](screenshots/01-main-roster.png)
 
-### Architecture: Layered Without a Backend
+**Design**: CSS Grid (`grid-template-columns: 180px repeat(7, 1fr)`) rather than `<table>` — matches the "employees as rows" layout that a roster demands. No third-party calendar library used (requirement §3).
+
+### 4. Detect and visually flag conflicts
+
+Three conflict types detected globally across all weeks:
+
+| Type | Detection | Visual |
+|------|-----------|--------|
+| **Overlap** | Same employee, same date, `a.start < b.end && b.start < a.end` | Red border + pink background on cell |
+| **Consecutive days (>5)** | Calendar-date-based sliding window, works across week boundaries | Red border + pink background |
+| **Unavailable** | Shift falls within an employee's unavailability rule | Red border + pink background |
+
+The amber conflict banner shows collapsed counts by type. Expand to see details, navigate to affected weeks, or run the solver.
+
+![Conflicts](screenshots/02-conflicts-expanded.png)
+
+**Design**: Conflicts are **derived state** — `detectAllConflicts(shifts, employees)` is a pure function called on render. No stored redundancy. Consecutive-day detection uses calendar dates (not day-of-week) so Fri-Sun + Mon-Wed = 6 days is correctly caught.
+
+### 5. Show a summary panel (total hours per employee for the week)
+
+Dark footer table with per-employee hours, shift counts, and role info. Color-coded: <20h gray, 20-40h green, 40-48h yellow, 48h+ red.
+
+![Summary](screenshots/06-summary-panel.png)
+
+---
+
+## Bonus Features
+
+### Drag-and-drop reassignment
+
+Grab any shift badge and drag it to a different cell. Uses `@dnd-kit` with a 5px activation distance (prevents accidental drag on click). Collision detection uses `pointerWithin` for cross-day dragging. Only same-role employees can receive dragged shifts.
+
+### Employee availability preferences
+
+Edit any employee to set **Unavailability Rules** — each rule has:
+- **Date range** (from/to, blank = forever)
+- **Days of week** (toggle Mon-Sun, blank = every day)
+- **Time ranges** (multiple, blank = all day)
+
+Click an employee card to expand and see their rules inline without opening edit mode.
+
+![Unavailability](screenshots/05-employee-detail.png)
+
+**Design**: `UnavailableSlot[]` on Employee. `isAvailable()` checks date range → day-of-week → time overlap. Unavailability violations are flagged as a third conflict type.
+
+### CSV export of the weekly roster
+
+Click **Export** in the toolbar, customize the filename, and download a CSV.
+
+![Export](screenshots/08-export-csv.png)
+
+**Design**: Pure string generation — no library needed. Handles multi-shift cells with semicolon separators.
+
+### Mobile-responsive layout
+
+On narrow screens (<1024px), the sidebar stacks above the grid, and the grid scrolls horizontally. All modals remain full-width.
+
+---
+
+## Extra: AI-Powered Conflict Resolution
+
+The most significant extension beyond requirements is a constraint-satisfaction solver for automatic shift reassignment.
+
+### Problem Modeling
 
 ```
-types/   → Shared interfaces (zero runtime code)
-logic/   → Pure functions (testable without React)
-context/ → State management (single source of truth)
-components/ → UI layer (reads state, dispatches actions)
+State: complete shift-to-employee assignments
+Cost: overlap×100 + consecutive_days×50 + unavailable×50
+Goal: find the minimum-step sequence to cost=0
 ```
 
-Components never mutate state directly. All changes go through `dispatch(action)`, making the data flow predictable and debuggable.
+### Algorithm: Hill-Climbing with Random Restarts
 
-### UI/UX Choices
+1. **Neighbor generation**: for each conflicted shift, generate all valid same-day moves and swaps to same-role employees
+2. **Cost evaluation**: each candidate is scored by the global conflict count after the move
+3. **Acceptance**: accept if cost decreases; accept with 50% probability if cost stays same (plateau escape)
+4. **Multi-trial**: run 8 independent trials with random seeds, pick the shortest solution
 
-- **Tailwind CSS** for consistent design tokens and zero-runtime styles.
-- **Portal-based modals** render to `document.body` to avoid z-index issues.
-- **Color-coded conflict cells** (red border + pink background) make violations scannable at a glance.
-- **Hover reveal** for empty cell "+" buttons keeps the grid clean when not in use.
-- **Sticky header** on the week navigator so controls are always accessible during scroll.
-- **Empty states** with clear calls-to-action instead of blank screens.
+### Two Modes
+
+- **Recommend All** — solves all conflicts globally, outputs a complete step-by-step plan. Apply All executes the entire plan.
+- **Find Fix** — targeted single-conflict resolution, returns minimal steps without introducing new conflicts.
+
+![Recommend All](screenshots/03-recommend-all.png)
+
+### Constraints
+
+- Same-day only (no time modification)
+- Exact role-set match (sorted role arrays must be identical)
+- Availability check for both sides of every swap
+- No new conflicts introduced
+
+---
 
 ## Project Structure
 
 ```
 src/
-├── types/index.ts                # Employee, Shift, Conflict, DayOfWeek
-├── data/sampleData.ts            # 4 employees + ~20 shifts with demo conflicts
+├── types/index.ts              # Employee, Shift, Conflict, DayOfWeek, etc.
+├── data/
+│   ├── sampleData.ts           # Demo data with 6 employees, cross-week conflicts
+│   ├── teamApi.ts              # HTTP client for team file API
+│   ├── teamLoader.ts           # Built-in team templates (Kitchen, Front Desk)
+│   └── teams/                  # JSON templates
 ├── logic/
-│   ├── conflictDetector.ts       # Overlap + consecutive day detection
-│   ├── hourCalculator.ts         # Time parsing and hours aggregation
-│   └── rosterUtils.ts            # Date helpers, groupBy, grid utilities
-├── context/RosterContext.tsx      # Context + useReducer + all actions
-└── components/
-    ├── Header.tsx                # App title + week navigation
-    ├── ConflictBanner.tsx        # Yellow warning bar when conflicts exist
-    ├── EmployeeManager/           # Employee CRUD (list, card, form modal)
-    ├── RosterGrid/               # Weekly grid, cells, badges, shift form
-    ├── SummaryPanel/              # Total hours table per employee
-    └── ui/                       # Primitive components (Button, Dialog, etc.)
+│   ├── conflictDetector.ts     # Overlap, consecutive-days, unavailable detection
+│   ├── hourCalculator.ts       # Time math and weekly summaries
+│   ├── rosterUtils.ts          # Date helpers, availability check, CSV generation
+│   └── recommendFix.ts         # Hill-climbing solver with random restarts
+├── context/RosterContext.tsx    # State management (Context + useReducer, 12 actions)
+├── components/
+│   ├── Header.tsx              # Week navigation, team selector, toolbar
+│   ├── ConflictBanner.tsx      # Expandable conflict panel with solver UI
+│   ├── EmployeeManager/        # Employee CRUD (list, card, form modal)
+│   ├── RosterGrid/             # WeeklyGrid, ShiftCell, ShiftBadge, ShiftFormModal
+│   ├── SummaryPanel/           # Per-employee hours table
+│   ├── CopyWeekModal.tsx       # Date-range schedule copy with day filter
+│   ├── ClearRangeModal.tsx     # Bulk shift deletion
+│   ├── ExportModal.tsx         # CSV export with filename input
+│   ├── MiniCalendar.tsx        # Reusable calendar date range picker
+│   ├── HelpModal.tsx           # User manual
+│   ├── ErrorBoundary.tsx       # React crash recovery
+│   └── ui/                     # Primitives (Button, Dialog, Badge, Input, Select)
+└── App.tsx                     # Root layout
 ```
 
-## Known Limitations & Future Improvements
-
-- **Cross-week consecutive days** — currently only checks within a single Mon-Sun window. An employee working Friday-Wednesday would not be caught.
-- **Overnight shifts** — shifts ending after midnight are not explicitly handled. Would need a `nextDay` flag or endTime comparison.
-- **Undo/redo** — the reducer pattern makes this straightforward to add with an action history stack.
-- **Persistence** — all data is in-memory. `localStorage` would be the natural first step.
-- **Mobile layout** — the 8-column grid does not collapse gracefully on narrow screens.
+---
 
 ## Tech Stack
 
@@ -95,4 +175,20 @@ src/
 | Build | Vite |
 | Styling | Tailwind CSS v4 |
 | State | Context + useReducer |
-| Dependencies | Zero runtime dependencies beyond React |
+| Drag & Drop | @dnd-kit/core |
+| Persistence | Vite plugin → JSON files in `data/teams/` |
+| Screenshots | Puppeteer |
+
+---
+
+## Data Flow
+
+```
+User Action → dispatch(action) → reducer → newState
+                                    ↓
+                              autoSave (POST /api/teams)
+                                    ↓
+                            data/teams/<name>.json
+```
+
+All mutations go through the reducer. Auto-save fires on every state change. Manual **Save** button in toolbar for explicit saves. Team switching saves the current team before loading the next.
