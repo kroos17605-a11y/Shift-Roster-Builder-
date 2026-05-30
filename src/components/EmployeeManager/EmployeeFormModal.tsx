@@ -23,7 +23,7 @@ function emptySlot(): UnavailableSlot {
   return { days: [], timeRanges: [] };
 }
 
-export function EmployeeFormModal({ mode, employee, existingRoles, isOpen, onClose }: Props) {
+export function EmployeeFormModal({ mode, employee, isOpen, onClose }: Props) {
   const { dispatch } = useRoster();
   const [name, setName] = useState('');
   const [rolesText, setRolesText] = useState('');
