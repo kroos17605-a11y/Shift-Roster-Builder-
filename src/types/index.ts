@@ -15,7 +15,7 @@ export interface UnavailableSlot {
 export interface Employee {
   id: string;
   name: string;
-  roles: string[];
+  role: string;
   unavailableSlots: UnavailableSlot[];
 }
 

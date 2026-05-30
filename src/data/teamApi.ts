@@ -1,7 +1,7 @@
 import type { Employee, Shift } from '../types';
 
 export interface TeamFile {
-  name: string;
+  teamName: string;
   employees: Employee[];
   shifts: Shift[];
 }
@@ -20,10 +20,10 @@ export async function loadTeam(name: string): Promise<TeamFile> {
     ...e,
     id: e.id || crypto.randomUUID(), // Ensure IDs exist for built-in templates
     unavailableSlots: e.unavailableSlots || [],
-    roles: e.roles || [],
+    role: e.role || '',
   }));
   return {
-    name: data.name,
+    teamName: data.name || name,
     employees,
     shifts: data.shifts || [],
   };

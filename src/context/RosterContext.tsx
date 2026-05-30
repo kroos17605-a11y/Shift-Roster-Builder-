@@ -2,6 +2,18 @@ import { createContext, useContext, useReducer, ReactNode } from 'react';
 import type { Employee, Shift, DayOfWeek, UnavailableSlot } from '../types';
 import { getWeekStartDate, getDateFromDay, getMatchingDatesInRange } from '../logic/rosterUtils';
 import { saveTeam } from '../data/teamApi';
+import { sampleEmployees, sampleShifts } from '../data/sampleData';
+
+const TEAMS_LIST_KEY = 'roster_teams_list';
+
+function loadTeamList(): string[] {
+  try { const raw = localStorage.getItem(TEAMS_LIST_KEY); return raw ? JSON.parse(raw) : []; }
+  catch { return []; }
+}
+
+function saveTeamList(list: string[]) {
+  try { localStorage.setItem(TEAMS_LIST_KEY, JSON.stringify(list)); } catch {}
+}
 
 interface RosterState {
   employees: Employee[];
@@ -13,8 +25,8 @@ interface RosterState {
 }
 
 type RosterAction =
-  | { type: 'ADD_EMPLOYEE'; payload: { name: string; roles: string[]; unavailableSlots?: UnavailableSlot[] } }
-  | { type: 'UPDATE_EMPLOYEE'; payload: { id: string; name: string; roles: string[]; unavailableSlots?: UnavailableSlot[] } }
+  | { type: 'ADD_EMPLOYEE'; payload: { name: string; role: string; unavailableSlots?: UnavailableSlot[] } }
+  | { type: 'UPDATE_EMPLOYEE'; payload: { id: string; name: string; role: string; unavailableSlots?: UnavailableSlot[] } }
   | { type: 'REMOVE_EMPLOYEE'; payload: { id: string } }
   | { type: 'ADD_SHIFT'; payload: { employeeId: string; day: DayOfWeek; date: string; startTime: string; endTime: string } }
   | { type: 'UPDATE_SHIFT'; payload: { id: string; employeeId?: string; day?: DayOfWeek; date?: string; startTime?: string; endTime?: string } }
@@ -23,6 +35,7 @@ type RosterAction =
   | { type: 'CLEAR_RANGE'; payload: { fromDate: string; toDate: string } }
   | { type: 'SET_WEEK'; payload: { weekStartDate: string } }
   | { type: 'LOAD_TEAM'; payload: { teamName: string; employees: Employee[]; shifts: Shift[]; teamList: string[] } }
+  | { type: 'LOAD_DEMO' }
   | { type: 'LOAD_SAMPLE'; payload: { employees: Employee[]; shifts: Shift[] } }
   | { type: 'DELETE_TEAM_DONE'; payload: { teamName: string } }
   | { type: 'SET_TEAMLIST'; payload: { teamList: string[] } }
@@ -45,7 +58,7 @@ function rosterReducer(state: RosterState, action: RosterAction): RosterState {
         employees: [...state.employees, {
           id: crypto.randomUUID(),
           name: action.payload.name,
-          roles: action.payload.roles,
+          role: action.payload.role,
           unavailableSlots: action.payload.unavailableSlots || [],
         }],
       };
@@ -56,7 +69,7 @@ function rosterReducer(state: RosterState, action: RosterAction): RosterState {
         ...state,
         employees: state.employees.map(e =>
           e.id === action.payload.id
-            ? { ...e, name: action.payload.name, roles: action.payload.roles, ...(action.payload.unavailableSlots !== undefined && { unavailableSlots: action.payload.unavailableSlots }) }
+            ? { ...e, name: action.payload.name, role: action.payload.role, ...(action.payload.unavailableSlots !== undefined && { unavailableSlots: action.payload.unavailableSlots }) }
             : e
         ),
       };
@@ -132,23 +145,32 @@ function rosterReducer(state: RosterState, action: RosterAction): RosterState {
       break;
 
     case 'LOAD_TEAM':
+      // Save current team before switching away
+      if (state.teamName) {
+        saveTeam(state.teamName, state.employees, state.shifts).catch(() => {});
+      }
       newState = {
         ...state,
         teamName: action.payload.teamName,
-        employees: action.payload.employees,
-        shifts: action.payload.shifts,
+        employees: [...action.payload.employees],
+        shifts: [...action.payload.shifts],
         teamList: action.payload.teamList,
       };
       break;
 
-    case 'LOAD_SAMPLE':
-      newState = {
-        ...state,
-        teamName: 'Demo',
-        employees: action.payload.employees,
-        shifts: action.payload.shifts,
-      };
+    case 'LOAD_DEMO': {
+      const tl = state.teamList.includes('Demo') ? state.teamList : [...state.teamList, 'Demo'];
+      saveTeamList(tl);
+      newState = { ...state, teamName: 'Demo', employees: [...sampleEmployees], shifts: [...sampleShifts], teamList: tl };
       break;
+    }
+
+    case 'LOAD_SAMPLE': {
+      const tl = state.teamList.includes('Demo') ? state.teamList : [...state.teamList, 'Demo'];
+      saveTeamList(tl);
+      newState = { ...state, teamName: 'Demo', employees: action.payload.employees, shifts: action.payload.shifts, teamList: tl };
+      break;
+    }
 
     case 'DELETE_TEAM_DONE':
       newState = {
@@ -197,7 +219,7 @@ export function RosterProvider({ children }: { children: ReactNode }) {
     shifts: [],
     weekStartDate: getWeekStartDate(new Date()),
     teamName: '',
-    teamList: [],
+    teamList: loadTeamList(),
     highlightedShiftIds: [],
   });
 

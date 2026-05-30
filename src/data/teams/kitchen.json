@@ -1,8 +1,8 @@
 {
   "teamName": "Kitchen",
   "employees": [
-    {"name": "Bob Wang", "roles": ["Cook"], "unavailableSlots": [{"days": ["Sunday"]}]},
-    {"name": "David Zhang", "roles": ["Cook", "Dishwasher"], "unavailableSlots": []},
-    {"name": "Eva Liu", "roles": ["Cook"], "unavailableSlots": [{"days": ["Monday"], "timeRanges": [{"startTime": "06:00", "endTime": "10:00"}]}]}
+    {"name": "Bob Wang", "role": "Cook", "unavailableSlots": [{"days": ["Sunday"]}]},
+    {"name": "David Zhang", "role": "Cook", "unavailableSlots": []},
+    {"name": "Eva Liu", "role": "Cook", "unavailableSlots": [{"days": ["Monday"], "timeRanges": [{"startTime": "06:00", "endTime": "10:00"}]}]}
   ]
 }

@@ -10,6 +10,7 @@ import { DAYS_OF_WEEK } from '../../types';
 interface Props {
   mode: 'add' | 'edit';
   employee?: Employee;
+  existingRoles: string[];
   isOpen: boolean;
   onClose: () => void;
 }
@@ -23,10 +24,10 @@ function emptySlot(): UnavailableSlot {
   return { days: [], timeRanges: [] };
 }
 
-export function EmployeeFormModal({ mode, employee, isOpen, onClose }: Props) {
+export function EmployeeFormModal({ mode, employee, existingRoles, isOpen, onClose }: Props) {
   const { dispatch } = useRoster();
   const [name, setName] = useState('');
-  const [rolesText, setRolesText] = useState('');
+  const [role, setRole] = useState('');
   const [slots, setSlots] = useState<UnavailableSlot[]>([]);
   const [error, setError] = useState('');
 
@@ -37,11 +38,11 @@ export function EmployeeFormModal({ mode, employee, isOpen, onClose }: Props) {
   useEffect(() => {
     if (mode === 'edit' && employee) {
       setName(employee.name);
-      setRolesText(employee.roles.join(', '));
+      setRole(employee.role || '');
       setSlots(employee.unavailableSlots?.length ? employee.unavailableSlots.map(s => ({ ...s })) : []);
     } else {
       setName('');
-      setRolesText('');
+      setRole('');
       setSlots([]);
     }
     setError('');
@@ -86,8 +87,7 @@ export function EmployeeFormModal({ mode, employee, isOpen, onClose }: Props) {
     e.preventDefault();
     const trimmedName = name.trim();
     if (!trimmedName) { setError('Name is required'); return; }
-    const roles = rolesText.split(',').map(s => s.trim()).filter(Boolean);
-    if (roles.length === 0) { setError('At least one role is required'); return; }
+    if (!role) { setError('Please select a role'); return; }
 
     // Clean: remove empty timeRanges arrays
     const cleanSlots = slots.map(s => ({
@@ -97,9 +97,9 @@ export function EmployeeFormModal({ mode, employee, isOpen, onClose }: Props) {
     }));
 
     if (mode === 'add') {
-      dispatch({ type: 'ADD_EMPLOYEE', payload: { name: trimmedName, roles, unavailableSlots: cleanSlots } });
+      dispatch({ type: 'ADD_EMPLOYEE', payload: { name: trimmedName, role, unavailableSlots: cleanSlots } });
     } else if (employee) {
-      dispatch({ type: 'UPDATE_EMPLOYEE', payload: { id: employee.id, name: trimmedName, roles, unavailableSlots: cleanSlots } });
+      dispatch({ type: 'UPDATE_EMPLOYEE', payload: { id: employee.id, name: trimmedName, role, unavailableSlots: cleanSlots } });
     }
     onClose();
   };
@@ -109,8 +109,16 @@ export function EmployeeFormModal({ mode, employee, isOpen, onClose }: Props) {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
         <Input label="Name" value={name} onChange={e => { setName(e.target.value); setError(''); }}
           placeholder="e.g. Alice Chen" error={error} autoFocus />
-        <Input label="Roles" value={rolesText} onChange={e => setRolesText(e.target.value)}
-          placeholder="e.g. Cashier, Supervisor" />
+        <div className="flex flex-col gap-1">
+          <label htmlFor="role-input" className="text-sm font-medium text-slate-700">Role</label>
+          <input id="role-input" list="role-list" value={role}
+            onChange={e => { setRole(e.target.value); setError(''); }}
+            placeholder="e.g. Cashier (type or select)"
+            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+          <datalist id="role-list">
+            {existingRoles.filter(Boolean).map(r => <option key={r} value={r} />)}
+          </datalist>
+        </div>
 
         {/* Unavailability slots */}
         <div className="flex flex-col gap-2">

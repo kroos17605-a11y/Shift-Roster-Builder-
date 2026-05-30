@@ -52,6 +52,11 @@ function applySwap(shifts: Shift[], shiftA: string, empA: string, shiftB: string
   });
 }
 
+/** Check if two employees share at least one role */
+function shareRole(empA: Employee, empB: Employee): boolean {
+  return empA.role === empB.role;
+}
+
 function generateCandidates(
   currentShifts: Shift[],
   employees: Employee[],
@@ -60,9 +65,13 @@ function generateCandidates(
 ): Candidate[] {
   const candidates: Candidate[] = [];
   const conflictedShifts = currentShifts.filter(s => conflictedShiftIds.has(s.id) && weekSet.has(s.id));
+  const empMap = new Map(employees.map(e => [e.id, e]));
 
   for (const shift of shuffle(conflictedShifts)) {
-    const otherEmps = shuffle(employees.filter(e => e.id !== shift.employeeId));
+    const sourceEmp = empMap.get(shift.employeeId)!;
+    const otherEmps = shuffle(employees.filter(e =>
+      e.id !== shift.employeeId && shareRole(sourceEmp, e)
+    ));
     for (const other of otherEmps) {
       const moved = applyMove(currentShifts, shift.id, other.id);
       const avail = isAvailable(other, shift.date, shift.day, shift.startTime, shift.endTime);

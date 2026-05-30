@@ -25,7 +25,7 @@ export function getWeeklySummaries(employees: Employee[], shifts: Shift[]): Week
     return {
       employeeId: emp.id,
       employeeName: emp.name,
-      roleNames: emp.roles.join(', '),
+      roleNames: emp.role,
       totalHours,
       shiftCount: empShifts.length,
     };

@@ -61,7 +61,7 @@ export function WeeklyGrid() {
           <h3 className="text-lg font-semibold text-slate-600 mb-2">No employees yet</h3>
           <p className="text-sm text-slate-400 mb-6">Add employees to start building the weekly roster.</p>
           <Button onClick={() => setIsAddingEmployee(true)}>Add First Employee</Button>
-          <EmployeeFormModal mode="add" isOpen={isAddingEmployee} onClose={() => setIsAddingEmployee(false)} />
+          <EmployeeFormModal mode="add" existingRoles={[]} isOpen={isAddingEmployee} onClose={() => setIsAddingEmployee(false)} />
         </div>
       </div>
     );
@@ -85,9 +85,7 @@ export function WeeklyGrid() {
               >
                 <p className="text-sm font-semibold text-slate-800 truncate">{emp.name}</p>
                 <div className="flex flex-wrap gap-0.5 mt-0.5">
-                  {emp.roles.map((role, i) => (
-                    <Badge key={i} variant={roleVariantMap[role] || 'default'} className="text-[10px]">{role}</Badge>
-                  ))}
+                  <Badge variant={roleVariantMap[emp.role] || 'default'} className="text-[10px]">{emp.role}</Badge>
                 </div>
               </div>
 

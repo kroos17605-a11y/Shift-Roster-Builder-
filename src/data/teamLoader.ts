@@ -11,7 +11,7 @@ export interface TeamData {
 
 interface RawEmployee {
   name: string;
-  roles: string[];
+  role?: string;
   unavailableSlots?: {
     days?: string[];
     dateFrom?: string;
@@ -32,7 +32,7 @@ function loadTeam(raw: RawTeam): TeamData {
   const employees: Employee[] = raw.employees.map(e => ({
     id: crypto.randomUUID(),
     name: e.name,
-    roles: e.roles,
+    role: e.role || '',
     unavailableSlots: (e.unavailableSlots || []).map(s => ({
       days: s.days as Employee['unavailableSlots'][0]['days'],
       dateFrom: s.dateFrom,

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useRoster } from '../context/RosterContext';
 import { getWeekDateRange, getShiftsForWeek, formatDate } from '../logic/rosterUtils';
-import { listTeams, loadTeam, deleteTeamFile } from '../data/teamApi';
+import { listTeams, loadTeam, deleteTeamFile, saveTeam } from '../data/teamApi';
 import { CopyWeekModal } from './CopyWeekModal';
 import { ExportModal } from './ExportModal';
 import { ClearRangeModal } from './ClearRangeModal';
+import { HelpModal } from './HelpModal';
 import { Button } from './ui/button';
 
 export function Header() {
@@ -12,15 +13,20 @@ export function Header() {
   const [showCopy, setShowCopy] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showClear, setShowClear] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   const weekDays = getWeekDateRange(state.weekStartDate);
   const firstDay = weekDays[0];
   const lastDay = weekDays[6];
 
-  // Refresh team list from server on mount
+  // Refresh team list from server on mount; auto-load demo if no teams exist
   useEffect(() => {
     listTeams().then(teamList => {
       dispatch({ type: 'SET_TEAMLIST', payload: { teamList } });
+      if (teamList.length === 0) {
+        dispatch({ type: 'LOAD_DEMO' });
+      }
     }).catch(() => {});
   }, []);
 
@@ -47,6 +53,11 @@ export function Header() {
   const handleSwitchTeam = async (teamName: string) => {
     const data = await loadTeam(teamName);
     const teamList = await listTeams();
+    // If loading Demo without saved data, fall back to fresh demo
+    if (teamName === 'Demo' && data.employees.length === 0) {
+      dispatch({ type: 'LOAD_DEMO' });
+      return;
+    }
     dispatch({ type: 'LOAD_TEAM', payload: { ...data, teamList } });
   };
 
@@ -60,6 +71,19 @@ export function Header() {
   };
 
   const weekShiftCount = getShiftsForWeek(state.shifts, state.weekStartDate).length;
+
+  const handleManualSave = async () => {
+    if (!state.teamName) return;
+    setSaveStatus('saving');
+    try {
+      await saveTeam(state.teamName, state.employees, state.shifts);
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch {
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
@@ -75,6 +99,8 @@ export function Header() {
                 if (name?.trim()) {
                   handleSwitchTeam(name.trim());
                 }
+              } else if (val === '__demo__') {
+                dispatch({ type: 'LOAD_DEMO' });
               } else if (val === '__refresh__') {
                 listTeams().then(tl => dispatch({ type: 'SET_TEAMLIST', payload: { teamList: tl } }));
               } else if (val) {
@@ -86,6 +112,7 @@ export function Header() {
           >
             <option value="" disabled>{state.teamName || 'Teams...'}</option>
             <option value="__new__">+ New Team</option>
+            <option value="__demo__">⭐ Demo</option>
             <option value="__refresh__">↻ Refresh list</option>
             <option disabled>---</option>
             {state.teamList.map(t => (
@@ -98,9 +125,18 @@ export function Header() {
               className="text-xs text-red-400 hover:text-red-600 cursor-pointer ml-1"
               title="Delete this team file from data/teams/">Del</button>
           )}
+          <button onClick={() => setShowHelp(true)}
+            className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer ml-1 border border-slate-200 rounded px-1.5 py-0.5"
+            title="Help">?</button>
         </div>
 
         <div className="flex items-center gap-1 lg:gap-2">
+          {state.teamName && (
+            <Button variant="ghost" size="sm" onClick={handleManualSave}
+              disabled={saveStatus === 'saving'}>
+              {saveStatus === 'saving' ? '...' : saveStatus === 'saved' ? 'Saved' : saveStatus === 'error' ? 'Error' : 'Save'}
+            </Button>
+          )}
           {state.shifts.length > 0 && (
             <Button variant="ghost" size="sm" onClick={() => setShowClear(true)}>Clear</Button>
           )}
@@ -126,6 +162,7 @@ export function Header() {
       <CopyWeekModal isOpen={showCopy} onClose={() => setShowCopy(false)} />
       <ExportModal isOpen={showExport} onClose={() => setShowExport(false)} />
       <ClearRangeModal isOpen={showClear} onClose={() => setShowClear(false)} />
+      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
     </header>
   );
 }
