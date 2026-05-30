@@ -77,7 +77,7 @@ export function WeeklyGrid() {
           <GridHeader />
 
           {state.employees.map((emp) => (
-            <>
+            <div key={`row-${emp.id}`} className="contents">
               {/* Employee name column */}
               <div
                 key={`emp-${emp.id}`}
@@ -100,7 +100,7 @@ export function WeeklyGrid() {
                   conflicts={conflicts}
                 />
               ))}
-            </>
+            </div>
           ))}
         </div>
       </div>
