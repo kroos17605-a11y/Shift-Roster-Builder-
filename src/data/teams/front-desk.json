@@ -1,8 +1,8 @@
 {
   "teamName": "Front Desk",
   "employees": [
-    {"name": "Alice Chen", "role": "Supervisor", "unavailableSlots": [{"days": ["Sunday"], "timeRanges": [{"startTime": "09:00", "endTime": "13:00"}]}]},
-    {"name": "Carol Li", "role": "Cashier", "unavailableSlots": []},
-    {"name": "Frank Wu", "role": "Cashier", "unavailableSlots": [{"days": ["Wednesday"]}]}
+    {"name": "Alice Chen", "roles": ["Supervisor", "Cashier"], "unavailableSlots": [{"days": ["Sunday"], "timeRanges": [{"startTime": "09:00", "endTime": "13:00"}]}]},
+    {"name": "Carol Li", "roles": ["Cashier"], "unavailableSlots": []},
+    {"name": "Frank Wu", "roles": ["Cashier", "Manager"], "unavailableSlots": [{"days": ["Wednesday"]}]}
   ]
 }

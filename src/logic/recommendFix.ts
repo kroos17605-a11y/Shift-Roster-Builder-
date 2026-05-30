@@ -53,8 +53,12 @@ function applySwap(shifts: Shift[], shiftA: string, empA: string, shiftB: string
 }
 
 /** Check if two employees share at least one role */
-function shareRole(empA: Employee, empB: Employee): boolean {
-  return empA.role === empB.role;
+/** Check if two employees have exactly the same role set */
+function sameRoles(empA: Employee, empB: Employee): boolean {
+  if (empA.roles.length !== empB.roles.length) return false;
+  const sortedA = [...empA.roles].sort();
+  const sortedB = [...empB.roles].sort();
+  return sortedA.every((r, i) => r === sortedB[i]);
 }
 
 function generateCandidates(
@@ -70,7 +74,7 @@ function generateCandidates(
   for (const shift of shuffle(conflictedShifts)) {
     const sourceEmp = empMap.get(shift.employeeId)!;
     const otherEmps = shuffle(employees.filter(e =>
-      e.id !== shift.employeeId && shareRole(sourceEmp, e)
+      e.id !== shift.employeeId && sameRoles(sourceEmp, e)
     ));
     for (const other of otherEmps) {
       const moved = applyMove(currentShifts, shift.id, other.id);

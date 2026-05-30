@@ -25,8 +25,8 @@ interface RosterState {
 }
 
 type RosterAction =
-  | { type: 'ADD_EMPLOYEE'; payload: { name: string; role: string; unavailableSlots?: UnavailableSlot[] } }
-  | { type: 'UPDATE_EMPLOYEE'; payload: { id: string; name: string; role: string; unavailableSlots?: UnavailableSlot[] } }
+  | { type: 'ADD_EMPLOYEE'; payload: { name: string; roles: string[]; unavailableSlots?: UnavailableSlot[] } }
+  | { type: 'UPDATE_EMPLOYEE'; payload: { id: string; name: string; roles: string[]; unavailableSlots?: UnavailableSlot[] } }
   | { type: 'REMOVE_EMPLOYEE'; payload: { id: string } }
   | { type: 'ADD_SHIFT'; payload: { employeeId: string; day: DayOfWeek; date: string; startTime: string; endTime: string } }
   | { type: 'UPDATE_SHIFT'; payload: { id: string; employeeId?: string; day?: DayOfWeek; date?: string; startTime?: string; endTime?: string } }
@@ -58,7 +58,7 @@ function rosterReducer(state: RosterState, action: RosterAction): RosterState {
         employees: [...state.employees, {
           id: crypto.randomUUID(),
           name: action.payload.name,
-          role: action.payload.role,
+          roles: action.payload.roles,
           unavailableSlots: action.payload.unavailableSlots || [],
         }],
       };
@@ -69,7 +69,7 @@ function rosterReducer(state: RosterState, action: RosterAction): RosterState {
         ...state,
         employees: state.employees.map(e =>
           e.id === action.payload.id
-            ? { ...e, name: action.payload.name, role: action.payload.role, ...(action.payload.unavailableSlots !== undefined && { unavailableSlots: action.payload.unavailableSlots }) }
+            ? { ...e, name: action.payload.name, roles: action.payload.roles, ...(action.payload.unavailableSlots !== undefined && { unavailableSlots: action.payload.unavailableSlots }) }
             : e
         ),
       };

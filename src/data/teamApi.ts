@@ -20,7 +20,7 @@ export async function loadTeam(name: string): Promise<TeamFile> {
     ...e,
     id: e.id || crypto.randomUUID(), // Ensure IDs exist for built-in templates
     unavailableSlots: e.unavailableSlots || [],
-    role: e.role || '',
+    roles: e.roles || [],
   }));
   return {
     teamName: data.name || name,

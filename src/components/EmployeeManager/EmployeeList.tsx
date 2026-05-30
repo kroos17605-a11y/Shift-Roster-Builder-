@@ -7,7 +7,6 @@ import { Button } from '../ui/button';
 export function EmployeeList() {
   const { state } = useRoster();
   const [isAdding, setIsAdding] = useState(false);
-  const existingRoles = [...new Set(state.employees.map(e => e.role).filter(Boolean))];
 
   return (
     <div className="flex flex-col h-full">
@@ -25,14 +24,13 @@ export function EmployeeList() {
           </p>
         ) : (
           state.employees.map(emp => (
-            <EmployeeCard key={emp.id} employee={emp} existingRoles={existingRoles} />
+            <EmployeeCard key={emp.id} employee={emp} />
           ))
         )}
       </div>
 
       <EmployeeFormModal
         mode="add"
-        existingRoles={existingRoles}
         isOpen={isAdding}
         onClose={() => setIsAdding(false)}
       />

@@ -7,7 +7,6 @@ import { EmployeeFormModal } from './EmployeeFormModal';
 
 interface Props {
   employee: Employee;
-  existingRoles: string[];
 }
 
 const roleVariantMap: Record<string, 'cyan' | 'green' | 'purple' | 'yellow' | 'red' | 'default'> = {
@@ -49,7 +48,7 @@ function describeSlot(s: Employee['unavailableSlots'][0]): string {
   return parts.join(' · ');
 }
 
-export function EmployeeCard({ employee, existingRoles }: Props) {
+export function EmployeeCard({ employee }: Props) {
   const { dispatch } = useRoster();
   const [isEditing, setIsEditing] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -84,7 +83,9 @@ export function EmployeeCard({ employee, existingRoles }: Props) {
               </span>
             </div>
             <div className="flex flex-wrap gap-1 mt-1">
-              <Badge variant={roleVariantMap[employee.role] || 'default'}>{employee.role}</Badge>
+              {employee.roles.map((r, i) => (
+                <Badge key={i} variant={roleVariantMap[r] || 'default'}>{r}</Badge>
+              ))}
             </div>
           </div>
 
@@ -128,7 +129,6 @@ export function EmployeeCard({ employee, existingRoles }: Props) {
       <EmployeeFormModal
         mode="edit"
         employee={employee}
-        existingRoles={existingRoles}
         isOpen={isEditing}
         onClose={() => setIsEditing(false)}
       />
