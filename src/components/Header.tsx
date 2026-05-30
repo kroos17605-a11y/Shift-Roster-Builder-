@@ -8,7 +8,7 @@ import { ClearRangeModal } from './ClearRangeModal';
 import { HelpModal } from './HelpModal';
 import { Button } from './ui/button';
 
-export function Header() {
+export function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   const { state, dispatch } = useRoster();
   const [showCopy, setShowCopy] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -88,8 +88,15 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-2 flex-wrap">
+        {/* Hamburger for mobile */}
+        <button onClick={onToggleSidebar} className="lg:hidden p-1 text-slate-500 hover:text-slate-700 mr-1 cursor-pointer">
+          <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 5h14M3 10h14M3 15h14" />
+          </svg>
+        </button>
+
         <div className="flex items-center gap-2">
-          <h1 className="text-lg lg:text-xl font-bold text-slate-800 tracking-tight whitespace-nowrap">Roster</h1>
+          <h1 className="text-base lg:text-xl font-bold text-slate-800 tracking-tight whitespace-nowrap">Roster</h1>
 
           <select
             onChange={e => {

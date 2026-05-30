@@ -75,7 +75,7 @@ Three conflict types detected globally across all weeks:
 
 Cross-week consecutive days (e.g. Fri–Sun + Mon–Wed) are detected via calendar-date comparison rather than per-week grouping:
 
-![cross-week](public/screenshots/16_c4-cross-week.png)
+
 
 **Design decisions**: Conflicts are **derived state** — `detectAllConflicts(shifts, employees)` is a synchronous pure function called on render. No stored redundancy. Consecutive-day detection sorts all working dates per employee, then finds the longest consecutive-date streak using `(date[i] - date[i-1]) / 86400000 === 1`. This naturally handles week boundaries.
 
@@ -106,9 +106,9 @@ Each employee can have multiple unavailability rules. Each rule specifies:
 - **Days of week** (toggle buttons, blank = every day)
 - **Time ranges** (multiple per rule, blank = all day)
 
-| Before (Normal Card) | During (Edit Unavailability) | After (Card Expanded) |
+| Before (Expanded Employee Card) | During (Edit Unavailability) | After |
 |----------------------|------------------------------|------------------------|
-| ![before](public/screenshots/21_b2-avail-before.png) | ![during](public/screenshots/22_b2-avail-during.png) | ![after](public/screenshots/23_b2-avail-after.png) |
+| ![before](public\screenshots\24_b3-export-before.png) | ![during](public\screenshots\23_b2-avail-during.png) | ![after](public/screenshots/23_b2-avail-after.png) |
 
 **Design decisions**: `UnavailableSlot[]` on Employee. `isAvailable()` checks date range → day-of-week filter → time overlap. Click an employee card (not edit) to expand and see rules inline. Assignment form shows an amber warning when the selected shift conflicts with availability.
 
@@ -116,17 +116,25 @@ Each employee can have multiple unavailability rules. Each rule specifies:
 
 Click **Export** in the toolbar, customize filename, download.
 
-| Before (Toolbar) | During (Export Modal) |
-|------------------|-----------------------|
-| ![before](public/screenshots/24_b3-export-before.png) | ![during](public/screenshots/25_b3-export-during.png) |
+| During (Export Card) |
+|-----------------------|
+| ![during](public/screenshots/25_b3-export-during.png) |
 
 **Design decisions**: Pure string generation — no library dependency. Multi-shift days use semicolon separators. Empty cells left blank.
 
 ### 2.4 Mobile-Responsive Layout
 
-At 375px viewport, the sidebar stacks above the grid, and the grid scrolls horizontally.
+On narrow screens (<1024px), the layout switches to a mobile-optimized view:
 
-![mobile](public/screenshots/26_b4-mobile.png)
+- **Hamburger menu** (☰) opens the employee sidebar as a slide-in drawer with backdrop overlay
+- **Day tabs** replace the 7-column grid — swipe between days with ◀ ▶ arrows
+- **Vertical shift list** per employee with inline "+ Add shift" buttons
+
+| Main View | Sidebar Drawer | Day Switched |
+|-----------|----------------|--------------|
+| ![mobile](public/screenshots/26_b4-mobile.png) | ![drawer](public/screenshots/26b_b4-mobile-drawer.png) | ![wed](public/screenshots/26c_b4-mobile-wed.png) |
+
+**Design**: Uses `lg:` Tailwind breakpoint. Desktop: `hidden lg:flex` for grid, `lg:hidden` for mobile view. Drawer uses CSS `@keyframes slideIn` animation. Day tabs have `scrollbar-hide` class for clean scrolling.
 
 ---
 
@@ -227,7 +235,7 @@ src/
 | Styling | Tailwind CSS v4 |
 | State | Context + useReducer |
 | Drag & Drop | @dnd-kit/core |
-| Screenshots | Puppeteer |
+
 | Runtime dependencies | 2 (`react`, `react-dom` + `@dnd-kit/core`) |
 
 
