@@ -16,7 +16,7 @@ function AppContent() {
 
       <div className="flex-1 flex flex-col max-w-7xl mx-auto w-full">
         <div className="flex-1 flex flex-col lg:flex-row gap-0 overflow-hidden">
-          <div className="w-full lg:w-56 shrink-0 border-b lg:border-b-0 lg:border-r border-slate-200 bg-white p-3 overflow-y-auto max-h-48 lg:max-h-none">
+          <div className="w-full lg:w-56 shrink-0 border-b lg:border-b-0 lg:border-r border-slate-200 bg-white p-3 overflow-y-auto max-h-40 lg:max-h-none">
             <EmployeeList />
           </div>
 

@@ -1,168 +1,219 @@
 # Shift Roster Builder
 
-A web application for managers to create and manage weekly staff schedules for small teams.
+A web application that lets a manager create and manage a weekly staff schedule for a small team.
 
-Built for the internship coding challenge — **Option A: Shift Roster Builder**.
+Built for **Option A: Shift Roster Builder** — Internship Coding Challenge.
 
-## Quick Start
+## Setup
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open http://localhost:5173. The app loads with demo data on first launch.
+Opens at http://localhost:5173. Demo data loads on first launch (or select "Demo" from the team dropdown). All data is stored in-memory; teams are persisted to JSON files under `data/teams/`.
 
 ---
 
-## Core Requirements
+## 1. Core Requirements
 
-### 1. Add, edit, and remove employees (each has a name and one or more roles)
+### 1.1 Add, Edit, and Remove Employees
 
-Roles are comma-separated free-text input (e.g. `Supervisor, Cashier`). Employees appear as cards in the left sidebar with role badges.
+Each employee has a name and one or more roles (e.g. Cashier, Supervisor, Cook). Roles are comma-separated free-text input.
 
-![Employee management](screenshots/04-add-employee.png)
+**Add:**
 
-**Design**: Each employee is a `{ id, name, roles: string[] }` object. Role matching for shift swaps uses exact set comparison (sorted array equality). The sidebar always displays an empty state guiding the user to add their first employee.
+| Before | During (Form Filled) | After (Card Added) |
+|--------|----------------------|---------------------|
+| ![add-before](public/screenshots/01_c1-add-before.png) | ![add-during](public/screenshots/02_c1-add-during.png) | ![add-after](public/screenshots/03_c1-add-after.png) |
 
-### 2. Assign an employee to a specific day and time slot
+**Edit:**
 
-Click any cell in the weekly grid (or the "+" icon on hover) to open the shift assignment form. Select employee, day, start/end time.
+| Before | During (Editing Name) | After (Name Updated) |
+|--------|----------------------|-----------------------|
+| ![edit-before](public/screenshots/04_c1-edit-before.png) | ![edit-during](public/screenshots/05_c1-edit-during.png) | ![edit-after](public/screenshots/06_c1-edit-after.png) |
 
-![Assign shift](screenshots/01-main-roster.png)
+**Remove:**
 
-**Design**: Shifts store a concrete calendar date (`YYYY-MM-DD`) computed from `weekStartDate + day offset`, enabling week-independent filtering. Time is stored as `HH:MM` strings — no timezone concerns since data lives in-memory.
+| Before | During (Delete Clicked) | After (Removed) |
+|--------|------------------------|------------------|
+| ![remove-before](public/screenshots/07_c1-remove-before.png) | ![remove-during](public/screenshots/08_c1-remove-during.png) | ![remove-after](public/screenshots/09_c1-remove-after.png) |
 
-### 3. Display all assignments in a weekly grid (days as columns, employees as rows)
+**Design decisions**: Employee roles are stored as `string[]` to support multi-role staff. Role matching for shift swaps uses exact set equality (sorted arrays). Selected roles are displayed as colored badges. Edit/delete buttons appear on hover via conditional rendering.
 
-An 8-column CSS Grid: fixed employee name column + 7 equal day columns. The grid renders shift badges showing time ranges. Empty cells show a hover-activated "+" button.
+### 1.2 Assign an Employee to a Day and Time Slot
 
-![Weekly grid](screenshots/01-main-roster.png)
+Click any grid cell (or the "+" icon on hover) to assign a shift.
 
-**Design**: CSS Grid (`grid-template-columns: 180px repeat(7, 1fr)`) rather than `<table>` — matches the "employees as rows" layout that a roster demands. No third-party calendar library used (requirement §3).
+| Empty Cell Hover | Assignment Form | Shift Badge |
+|------------------|-----------------|-------------|
+| ![hover](public/screenshots/10_c2-assign-before.png) | ![form](public/screenshots/11_c2-assign-during.png) | ![badge](public/screenshots/12_c2-assign-after.png) |
 
-### 4. Detect and visually flag conflicts
+**Design decisions**: Each shift stores a concrete calendar `date: string` (YYYY-MM-DD), computed from `weekStartDate + day offset`. Time is `HH:MM` strings. This enables week-independent filtering — each week has its own shifts. The same cell can contain multiple shifts (add via the persistent "+" button).
+
+### 1.3 Weekly Grid — Days as Columns, Employees as Rows
+
+![grid](public/screenshots/13_c3-weekly-grid.png)
+
+**Design decisions**: 8-column CSS Grid (`180px repeat(7, 1fr)`) — employee name column + 7 day columns. No third-party calendar or scheduling library used (requirement §3). Days show short names and dates. The current day column is highlighted in cyan. Week navigation uses `< >` arrows with date range display.
+
+### 1.4 Conflict Detection
 
 Three conflict types detected globally across all weeks:
 
-| Type | Detection | Visual |
-|------|-----------|--------|
-| **Overlap** | Same employee, same date, `a.start < b.end && b.start < a.end` | Red border + pink background on cell |
-| **Consecutive days (>5)** | Calendar-date-based sliding window, works across week boundaries | Red border + pink background |
-| **Unavailable** | Shift falls within an employee's unavailability rule | Red border + pink background |
+| Type | Rule | Visual |
+|------|------|--------|
+| Overlap | Same employee, same date, `a.start < b.end && b.start < a.end` | Red border + pink cell |
+| Consecutive Days > 5 | Calendar-date sliding window (cross-week) | Red border + pink cell |
+| Unavailable | Shift falls within an unavailability rule | Red border + pink cell |
 
-The amber conflict banner shows collapsed counts by type. Expand to see details, navigate to affected weeks, or run the solver.
+![conflict cells](public/screenshots/14_c4-conflict-cells.png)
 
-![Conflicts](screenshots/02-conflicts-expanded.png)
+| Banner Collapsed | Banner Expanded |
+|------------------|-----------------|
+| ![collapsed](public/screenshots/14_c4-conflict-cells.png) | ![expanded](public/screenshots/15_c4-conflict-expanded.png) |
 
-**Design**: Conflicts are **derived state** — `detectAllConflicts(shifts, employees)` is a pure function called on render. No stored redundancy. Consecutive-day detection uses calendar dates (not day-of-week) so Fri-Sun + Mon-Wed = 6 days is correctly caught.
+Cross-week consecutive days (e.g. Fri–Sun + Mon–Wed) are detected via calendar-date comparison rather than per-week grouping:
 
-### 5. Show a summary panel (total hours per employee for the week)
+![cross-week](public/screenshots/16_c4-cross-week.png)
 
-Dark footer table with per-employee hours, shift counts, and role info. Color-coded: <20h gray, 20-40h green, 40-48h yellow, 48h+ red.
+**Design decisions**: Conflicts are **derived state** — `detectAllConflicts(shifts, employees)` is a synchronous pure function called on render. No stored redundancy. Consecutive-day detection sorts all working dates per employee, then finds the longest consecutive-date streak using `(date[i] - date[i-1]) / 86400000 === 1`. This naturally handles week boundaries.
 
-![Summary](screenshots/06-summary-panel.png)
+### 1.5 Summary Panel — Total Hours Per Employee
 
----
+![summary](public/screenshots/17_c5-summary.png)
 
-## Bonus Features
-
-### Drag-and-drop reassignment
-
-Grab any shift badge and drag it to a different cell. Uses `@dnd-kit` with a 5px activation distance (prevents accidental drag on click). Collision detection uses `pointerWithin` for cross-day dragging. Only same-role employees can receive dragged shifts.
-
-### Employee availability preferences
-
-Edit any employee to set **Unavailability Rules** — each rule has:
-- **Date range** (from/to, blank = forever)
-- **Days of week** (toggle Mon-Sun, blank = every day)
-- **Time ranges** (multiple, blank = all day)
-
-Click an employee card to expand and see their rules inline without opening edit mode.
-
-![Unavailability](screenshots/05-employee-detail.png)
-
-**Design**: `UnavailableSlot[]` on Employee. `isAvailable()` checks date range → day-of-week → time overlap. Unavailability violations are flagged as a third conflict type.
-
-### CSV export of the weekly roster
-
-Click **Export** in the toolbar, customize the filename, and download a CSV.
-
-![Export](screenshots/08-export-csv.png)
-
-**Design**: Pure string generation — no library needed. Handles multi-shift cells with semicolon separators.
-
-### Mobile-responsive layout
-
-On narrow screens (<1024px), the sidebar stacks above the grid, and the grid scrolls horizontally. All modals remain full-width.
+**Design decisions**: Hours color-coded: `<20h` gray, `20–40h` green, `40–48h` yellow, `48h+` red. Rendered as a dark footer table to visually separate from the roster grid. Total row at the bottom.
 
 ---
 
-## Extra: AI-Powered Conflict Resolution
+## 2. Bonus (Stretch Goals)
 
-The most significant extension beyond requirements is a constraint-satisfaction solver for automatic shift reassignment.
+### 2.1 Drag-and-Drop Shift Reassignment
 
-### Problem Modeling
+Shift badges are draggable (grab cursor). Uses `@dnd-kit/core` with `PointerSensor` (5px activation distance — prevents accidental drag on click). Collision detection: `pointerWithin` for cross-day dragging. Only same-role employees can receive dragged shifts.
+
+| Before Drag | During Drag | After Drop |
+|-------------|-------------|-------------|
+| ![before](public/screenshots/18_b1-drag-before.png) | ![during](public/screenshots/19_b1-drag-during.png) | ![after](public/screenshots/20_b1-drag-after.png) |
+
+**Design**: Each ShiftBadge uses `useDraggable`, each ShiftCell uses `useDroppable` with composite ID `${employeeId}:${day}`. On `onDragEnd`, UPDATE_SHIFT dispatches with new `employeeId`, `day`, and recomputed `date`.
+
+### 2.2 Employee Availability Preferences
+
+Each employee can have multiple unavailability rules. Each rule specifies:
+- **Date range** (from/to, blank = always)
+- **Days of week** (toggle buttons, blank = every day)
+- **Time ranges** (multiple per rule, blank = all day)
+
+| Before (Normal Card) | During (Edit Unavailability) | After (Card Expanded) |
+|----------------------|------------------------------|------------------------|
+| ![before](public/screenshots/21_b2-avail-before.png) | ![during](public/screenshots/22_b2-avail-during.png) | ![after](public/screenshots/23_b2-avail-after.png) |
+
+**Design decisions**: `UnavailableSlot[]` on Employee. `isAvailable()` checks date range → day-of-week filter → time overlap. Click an employee card (not edit) to expand and see rules inline. Assignment form shows an amber warning when the selected shift conflicts with availability.
+
+### 2.3 CSV Export
+
+Click **Export** in the toolbar, customize filename, download.
+
+| Before (Toolbar) | During (Export Modal) |
+|------------------|-----------------------|
+| ![before](public/screenshots/24_b3-export-before.png) | ![during](public/screenshots/25_b3-export-during.png) |
+
+**Design decisions**: Pure string generation — no library dependency. Multi-shift days use semicolon separators. Empty cells left blank.
+
+### 2.4 Mobile-Responsive Layout
+
+At 375px viewport, the sidebar stacks above the grid, and the grid scrolls horizontally.
+
+![mobile](public/screenshots/26_b4-mobile.png)
+
+---
+
+## 3. Extra: AI Conflict Resolution
+
+A constraint-satisfaction solver using **Hill-Climbing with Random Restarts**.
+
+**Model**: State = all shift assignments. Cost = `overlap×100 + consecutive_days×50 + unavailable×50`. Goal = cost → 0.
+
+**Algorithm**: For each conflicted shift, generate same-day moves/swaps to same-role employees. Evaluate global cost impact. Accept if cost decreases, or with 50% probability on plateau (escape local optima). Run 8 independent trials, pick the shortest solution.
+
+| Before | Solution Plan | After Apply |
+|--------|---------------|-------------|
+| ![before](public/screenshots/27_e1-before.png) | ![plan](public/screenshots/28_e1-solution.png) | ![after](public/screenshots/29_e1-after.png) |
+
+**Constraints enforced**: Same-day only (no time modification), exact role-set match, availability check for both swap sides, no new conflicts introduced.
+
+---
+
+## 4. Data Model
+
+```typescript
+Employee {
+  id: string
+  name: string
+  roles: string[]           // e.g. ["Supervisor", "Cashier"]
+  unavailableSlots: {
+    dateFrom?: string        // YYYY-MM-DD, blank = always
+    dateTo?: string
+    days?: DayOfWeek[]       // Mon-Sun, blank = every day
+    timeRanges?: { startTime: string, endTime: string }[]  // blank = all day
+  }[]
+}
+
+Shift {
+  id: string
+  employeeId: string         // FK → Employee
+  date: string               // YYYY-MM-DD concrete calendar date
+  day: DayOfWeek             // Monday | ... | Sunday
+  startTime: string          // HH:MM
+  endTime: string            // HH:MM
+}
+
+Conflict {                   // derived, not stored
+  type: 'overlap' | 'consecutive_days' | 'unavailable'
+  employeeId: string
+  description: string
+  involvedShiftIds: string[]
+}
+```
+
+---
+
+## 5. Architecture
 
 ```
-State: complete shift-to-employee assignments
-Cost: overlap×100 + consecutive_days×50 + unavailable×50
-Goal: find the minimum-step sequence to cost=0
+types/   → Shared interfaces (zero runtime)
+logic/   → Pure functions: conflict detection, hour calculation, solver
+context/ → React Context + useReducer (12 actions)
+components/ → UI layer: reads state, dispatches actions
 ```
 
-### Algorithm: Hill-Climbing with Random Restarts
+**Key design choices**:
 
-1. **Neighbor generation**: for each conflicted shift, generate all valid same-day moves and swaps to same-role employees
-2. **Cost evaluation**: each candidate is scored by the global conflict count after the move
-3. **Acceptance**: accept if cost decreases; accept with 50% probability if cost stays same (plateau escape)
-4. **Multi-trial**: run 8 independent trials with random seeds, pick the shortest solution
-
-### Two Modes
-
-- **Recommend All** — solves all conflicts globally, outputs a complete step-by-step plan. Apply All executes the entire plan.
-- **Find Fix** — targeted single-conflict resolution, returns minimal steps without introducing new conflicts.
-
-![Recommend All](screenshots/03-recommend-all.png)
-
-### Constraints
-
-- Same-day only (no time modification)
-- Exact role-set match (sorted role arrays must be identical)
-- Availability check for both sides of every swap
-- No new conflicts introduced
+- **Context + useReducer** over Redux/Zustand: 12 actions, shallow state shape, zero dependencies. Migratable upward if complexity grows.
+- **CSS Grid** over calendar libraries: requirement bans scheduling libraries. Full control over cell rendering for the "employees-as-rows" layout.
+- **Pure function conflict detection**: no stored state, recalculated on render. O(n²) for pairwise overlaps — imperceptible at small-team scale.
+- **In-memory storage**: no backend/database as required. File-based persistence via Vite plugin (opt-in).
 
 ---
 
-## Project Structure
+## 6. Project Structure
 
 ```
 src/
-├── types/index.ts              # Employee, Shift, Conflict, DayOfWeek, etc.
-├── data/
-│   ├── sampleData.ts           # Demo data with 6 employees, cross-week conflicts
-│   ├── teamApi.ts              # HTTP client for team file API
-│   ├── teamLoader.ts           # Built-in team templates (Kitchen, Front Desk)
-│   └── teams/                  # JSON templates
-├── logic/
-│   ├── conflictDetector.ts     # Overlap, consecutive-days, unavailable detection
-│   ├── hourCalculator.ts       # Time math and weekly summaries
-│   ├── rosterUtils.ts          # Date helpers, availability check, CSV generation
-│   └── recommendFix.ts         # Hill-climbing solver with random restarts
-├── context/RosterContext.tsx    # State management (Context + useReducer, 12 actions)
-├── components/
-│   ├── Header.tsx              # Week navigation, team selector, toolbar
-│   ├── ConflictBanner.tsx      # Expandable conflict panel with solver UI
-│   ├── EmployeeManager/        # Employee CRUD (list, card, form modal)
-│   ├── RosterGrid/             # WeeklyGrid, ShiftCell, ShiftBadge, ShiftFormModal
-│   ├── SummaryPanel/           # Per-employee hours table
-│   ├── CopyWeekModal.tsx       # Date-range schedule copy with day filter
-│   ├── ClearRangeModal.tsx     # Bulk shift deletion
-│   ├── ExportModal.tsx         # CSV export with filename input
-│   ├── MiniCalendar.tsx        # Reusable calendar date range picker
-│   ├── HelpModal.tsx           # User manual
-│   ├── ErrorBoundary.tsx       # React crash recovery
-│   └── ui/                     # Primitives (Button, Dialog, Badge, Input, Select)
-└── App.tsx                     # Root layout
+├── types/index.ts
+├── data/  (sampleData, teamApi, teamLoader, team templates)
+├── logic/ (conflictDetector, hourCalculator, rosterUtils, recommendFix)
+├── context/RosterContext.tsx
+└── components/
+    ├── Header, ConflictBanner
+    ├── EmployeeManager/ (EmployeeList, EmployeeCard, EmployeeFormModal)
+    ├── RosterGrid/ (WeeklyGrid, GridHeader, ShiftCell, ShiftBadge, ShiftFormModal)
+    ├── SummaryPanel/
+    ├── CopyWeekModal, ClearRangeModal, ExportModal
+    ├── MiniCalendar, HelpModal, ErrorBoundary
+    └── ui/ (Button, Dialog, Badge, Input, Select)
 ```
 
 ---
@@ -176,19 +227,7 @@ src/
 | Styling | Tailwind CSS v4 |
 | State | Context + useReducer |
 | Drag & Drop | @dnd-kit/core |
-| Persistence | Vite plugin → JSON files in `data/teams/` |
 | Screenshots | Puppeteer |
+| Runtime dependencies | 2 (`react`, `react-dom` + `@dnd-kit/core`) |
 
----
 
-## Data Flow
-
-```
-User Action → dispatch(action) → reducer → newState
-                                    ↓
-                              autoSave (POST /api/teams)
-                                    ↓
-                            data/teams/<name>.json
-```
-
-All mutations go through the reducer. Auto-save fires on every state change. Manual **Save** button in toolbar for explicit saves. Team switching saves the current team before loading the next.
